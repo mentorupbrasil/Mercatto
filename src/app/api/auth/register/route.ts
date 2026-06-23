@@ -8,33 +8,75 @@ import {
 } from "@/lib/auth";
 import { apiError, apiSuccess, parseBody } from "@/lib/api-helpers";
 
-const registerSchema = z.object({
-  organizationName: z.string().min(2, "Nome da organização obrigatório"),
-  slug: z
-    .string()
-    .min(2, "Slug obrigatório")
-    .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens"),
-  name: z.string().min(2, "Nome obrigatório"),
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
-  cnpj: z.string().optional(),
-  phone: z.string().optional(),
-  segment: z
-    .enum([
-      "GENERAL",
-      "CLOTHING",
-      "FOOTWEAR",
-      "STATIONERY",
-      "AUTO_PARTS",
-      "CONSTRUCTION",
-      "CONVENIENCE",
-      "SUPERMARKET",
-      "OPTICAL",
-      "PET_SHOP",
-      "TECH_REPAIR",
-    ])
-    .optional(),
-});
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 50);
+}
+
+async function uniqueSlug(base: string) {
+  let slug = slugify(base) || "loja";
+  let attempt = 0;
+  while (await prisma.organization.findUnique({ where: { slug } })) {
+    attempt += 1;
+    slug = `${slugify(base)}-${attempt}`;
+  }
+  return slug;
+}
+
+const registerSchema = z
+  .object({
+    storeName: z.string().optional(),
+    organizationName: z.string().optional(),
+    ownerName: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().email("E-mail inválido"),
+    password: z
+      .string()
+      .min(8, "Senha deve ter no mínimo 8 caracteres")
+      .regex(/[a-zA-Z]/, "Senha deve conter letras")
+      .regex(/[0-9]/, "Senha deve conter números"),
+    slug: z.string().optional(),
+    cnpj: z.string().optional(),
+    phone: z.string().optional(),
+    segment: z
+      .enum([
+        "GENERAL",
+        "CLOTHING",
+        "FOOTWEAR",
+        "STATIONERY",
+        "AUTO_PARTS",
+        "CONSTRUCTION",
+        "CONVENIENCE",
+        "SUPERMARKET",
+        "OPTICAL",
+        "PET_SHOP",
+        "TECH_REPAIR",
+      ])
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    const orgName = data.storeName?.trim() || data.organizationName?.trim();
+    const userName = data.ownerName?.trim() || data.name?.trim();
+    if (!orgName || orgName.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Nome da loja é obrigatório",
+        path: ["storeName"],
+      });
+    }
+    if (!userName || userName.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Seu nome é obrigatório",
+        path: ["ownerName"],
+      });
+    }
+  });
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,12 +86,27 @@ export async function POST(req: NextRequest) {
       return apiError(parsed.error.errors[0]?.message ?? "Dados inválidos", 400);
     }
 
-    const { organizationName, slug, name, email, password, cnpj, phone, segment } =
-      parsed.data;
+    const organizationName =
+      parsed.data.storeName?.trim() || parsed.data.organizationName!.trim();
+    const name = parsed.data.ownerName?.trim() || parsed.data.name!.trim();
+    const { email, password, cnpj, phone, segment } = parsed.data;
+
+    const slug = parsed.data.slug?.trim()
+      ? slugify(parsed.data.slug)
+      : await uniqueSlug(organizationName);
+
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      return apiError("Identificador da loja inválido", 400);
+    }
 
     const existingOrg = await prisma.organization.findUnique({ where: { slug } });
     if (existingOrg) {
-      return apiError("Slug já está em uso", 409);
+      return apiError("Já existe uma loja com este nome. Tente outro.", 409);
+    }
+
+    const existingUser = await prisma.user.findFirst({ where: { email } });
+    if (existingUser) {
+      return apiError("Este e-mail já está cadastrado", 409);
     }
 
     const passwordHash = await hashPassword(password);
@@ -121,6 +178,10 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     console.error(err);
-    return apiError("Erro interno", 500);
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    if (message.includes("connect") || message.includes("DATABASE")) {
+      return apiError("Banco de dados não configurado. Verifique o DATABASE_URL no .env", 503);
+    }
+    return apiError("Erro interno ao criar conta. Tente novamente.", 500);
   }
 }

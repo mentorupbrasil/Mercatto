@@ -20,11 +20,22 @@ export default function RegisterPage() {
 
     const formData = new FormData(event.currentTarget);
     const payload = {
-      storeName: formData.get("storeName") as string,
-      ownerName: formData.get("ownerName") as string,
-      email: formData.get("email") as string,
+      storeName: (formData.get("storeName") as string).trim(),
+      ownerName: (formData.get("ownerName") as string).trim(),
+      email: (formData.get("email") as string).trim(),
       password: formData.get("password") as string,
     };
+
+    if (payload.password.length < 8) {
+      setError("A senha deve ter no mínimo 8 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+    if (!/[a-zA-Z]/.test(payload.password) || !/[0-9]/.test(payload.password)) {
+      setError("A senha deve conter letras e números.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/auth/register", {
