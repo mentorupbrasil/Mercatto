@@ -65,11 +65,11 @@ export default function FidelidadePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {program.coupons.length === 0 ? (
+              {(program.coupons ?? []).length === 0 ? (
                 <p className="text-sm text-gray-500">Nenhum cupom cadastrado.</p>
               ) : (
                 <ul className="space-y-2">
-                  {program.coupons.map((c) => (
+                  {(program.coupons ?? []).map((c) => (
                     <li key={c.id} className="flex items-center justify-between rounded-lg border p-3">
                       <div>
                         <p className="font-mono font-bold">{c.code}</p>

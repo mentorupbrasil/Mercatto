@@ -6,6 +6,7 @@ import {
   hashPassword,
   setSessionCookie,
 } from "@/lib/auth";
+import { seedOrganizationCatalog } from "@/lib/services/catalog-seed";
 import { apiError, apiSuccess, parseBody } from "@/lib/api-helpers";
 
 function slugify(text: string) {
@@ -144,6 +145,11 @@ export async function POST(req: NextRequest) {
 
       return { organization, branch, user };
     });
+
+    await seedOrganizationCatalog(
+      result.organization.id,
+      result.organization.segment
+    );
 
     const token = await createToken({
       userId: result.user.id,

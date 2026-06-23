@@ -28,8 +28,9 @@ interface DashboardData {
 }
 
 export default function RelatoriosPage() {
-  const { data: abc, loading: abcLoading } = useApi<ABCCurve[]>("/api/analytics/abc");
+  const { data: abcData, loading: abcLoading } = useApi<{ curve: ABCCurve[] }>("/api/analytics/abc");
   const { data: dash } = useApi<DashboardData>("/api/dashboard");
+  const abc = abcData?.curve ?? [];
 
   const ticketMedio = dash?.month?.salesCount
     ? dash.month.revenue / dash.month.salesCount
@@ -76,7 +77,7 @@ export default function RelatoriosPage() {
             <div className="flex h-32 items-center justify-center">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-mercatto-600 border-t-transparent" />
             </div>
-          ) : !abc?.length ? (
+          ) : abc.length === 0 ? (
             <p className="text-sm text-gray-500">Sem dados de vendas para análise.</p>
           ) : (
             <>

@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/ui/select-field";
+import { useApi, apiPost } from "@/hooks/use-api";
+import { toOptions } from "@/hooks/use-catalog";
+import { formatDateTime } from "@/lib/utils";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { useApi, apiPost } from "@/hooks/use-api";
-import { formatDateTime } from "@/lib/utils";
 
 interface Movement {
   id: string;
@@ -25,6 +27,14 @@ interface Movement {
   product: { name: string; internalCode: string };
   branch: { name: string };
 }
+
+const movementTypes = [
+  { value: "ADJUSTMENT", label: "Ajuste" },
+  { value: "INVENTORY", label: "Inventário" },
+  { value: "LOSS", label: "Perda" },
+  { value: "INTERNAL_USE", label: "Consumo interno" },
+  { value: "RETURN", label: "Devolução" },
+];
 
 const typeLabels: Record<string, string> = {
   PURCHASE: "Compra",
@@ -160,32 +170,19 @@ export default function EstoquePage() {
 
       <Modal open={adjustOpen} onClose={() => setAdjustOpen(false)} title="Ajustar Estoque">
         <form onSubmit={handleAdjust} className="space-y-4">
-          <div>
-            <label className="mercatto-label">Filial</label>
-            <select name="branchId" className="mercatto-input" required>
-              {branches?.branches?.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Produto</label>
-            <select name="productId" className="mercatto-input" required>
-              {products?.products?.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Tipo</label>
-            <select name="type" className="mercatto-input" required>
-              <option value="ADJUSTMENT">Ajuste</option>
-              <option value="INVENTORY">Inventário</option>
-              <option value="LOSS">Perda</option>
-              <option value="INTERNAL_USE">Consumo interno</option>
-              <option value="RETURN">Devolução</option>
-            </select>
-          </div>
+          <SelectField
+            label="Filial"
+            name="branchId"
+            required
+            options={toOptions(branches?.branches ?? [])}
+          />
+          <SelectField
+            label="Produto"
+            name="productId"
+            required
+            options={toOptions(products?.products ?? [])}
+          />
+          <SelectField label="Tipo" name="type" required options={movementTypes} />
           <Input label="Quantidade (+/-)" name="quantity" type="number" required />
           <Input label="Motivo" name="reason" />
           <div className="flex justify-end gap-2">
@@ -197,30 +194,24 @@ export default function EstoquePage() {
 
       <Modal open={transferOpen} onClose={() => setTransferOpen(false)} title="Transferência entre Filiais">
         <form onSubmit={handleTransfer} className="space-y-4">
-          <div>
-            <label className="mercatto-label">Origem</label>
-            <select name="fromBranchId" className="mercatto-input" required>
-              {branches?.branches?.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Destino</label>
-            <select name="toBranchId" className="mercatto-input" required>
-              {branches?.branches?.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Produto</label>
-            <select name="productId" className="mercatto-input" required>
-              {products?.products?.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Origem"
+            name="fromBranchId"
+            required
+            options={toOptions(branches?.branches ?? [])}
+          />
+          <SelectField
+            label="Destino"
+            name="toBranchId"
+            required
+            options={toOptions(branches?.branches ?? [])}
+          />
+          <SelectField
+            label="Produto"
+            name="productId"
+            required
+            options={toOptions(products?.products ?? [])}
+          />
           <Input label="Quantidade" name="quantity" type="number" min="1" required />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setTransferOpen(false)}>Cancelar</Button>

@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/ui/select-field";
+import { useCatalog, toOptions } from "@/hooks/use-catalog";
 import { useApi, apiPost } from "@/hooks/use-api";
 import { formatDateTime } from "@/lib/utils";
 
@@ -38,6 +40,7 @@ export default function AgendaPage() {
   const [saving, setSaving] = useState(false);
   const { data, loading, refetch } = useApi<{ appointments: Appointment[] }>("/api/appointments");
   const { data: customers } = useApi<{ customers: { id: string; name: string }[] }>("/api/customers");
+  const { data: catalog } = useCatalog();
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -107,23 +110,17 @@ export default function AgendaPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Novo Agendamento">
         <form onSubmit={handleCreate} className="space-y-4">
           <Input label="Título" name="title" required />
-          <div>
-            <label className="mercatto-label">Tipo</label>
-            <select name="type" className="mercatto-input">
-              {Object.entries(typeLabels).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Cliente</label>
-            <select name="customerId" className="mercatto-input">
-              <option value="">Sem cliente</option>
-              {customers?.customers?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Tipo de agendamento"
+            name="type"
+            options={catalog?.appointmentTypes ?? []}
+          />
+          <SelectField
+            label="Cliente"
+            name="customerId"
+            options={toOptions(customers?.customers ?? [])}
+            placeholder="Sem cliente"
+          />
           <Input label="Data" name="date" type="date" required />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Início" name="startTime" type="time" required />

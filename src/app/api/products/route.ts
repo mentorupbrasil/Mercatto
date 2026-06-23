@@ -20,6 +20,7 @@ const createProductSchema = z.object({
   description: z.string().optional(),
   categoryId: z.string().optional(),
   brandId: z.string().optional(),
+  modelId: z.string().optional(),
   supplierId: z.string().optional(),
   unit: z
     .enum(["UN", "KG", "G", "L", "ML", "M", "M2", "CX", "PC", "PAR"])
@@ -41,6 +42,9 @@ export const GET = withAuth(async (req, session) => {
   const search = searchParams.get("search") ?? undefined;
   const categoryId = searchParams.get("categoryId") ?? undefined;
   const brandId = searchParams.get("brandId") ?? undefined;
+  const modelId = searchParams.get("modelId") ?? undefined;
+  const color = searchParams.get("color") ?? undefined;
+  const size = searchParams.get("size") ?? undefined;
   const active = searchParams.get("active");
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
@@ -57,6 +61,15 @@ export const GET = withAuth(async (req, session) => {
     }),
     ...(categoryId && { categoryId }),
     ...(brandId && { brandId }),
+    ...(modelId && { modelId }),
+    ...((color || size) && {
+      variants: {
+        some: {
+          ...(color && { color }),
+          ...(size && { size }),
+        },
+      },
+    }),
     ...(active !== null && active !== "" && { active: active === "true" }),
   };
 
@@ -66,6 +79,7 @@ export const GET = withAuth(async (req, session) => {
       include: {
         category: true,
         brand: true,
+        model: true,
         supplier: { select: { id: true, name: true } },
         variants: true,
         stock: true,
@@ -108,6 +122,7 @@ export const POST = withAuth(async (req, session) => {
       description: data.description,
       categoryId: data.categoryId,
       brandId: data.brandId,
+      modelId: data.modelId,
       supplierId: data.supplierId,
       unit: data.unit ?? "UN",
       cost: data.cost ?? 0,
@@ -132,7 +147,7 @@ export const POST = withAuth(async (req, session) => {
           }
         : undefined,
     },
-    include: { variants: true, category: true, brand: true },
+    include: { variants: true, category: true, brand: true, model: true },
   });
 
   await logAudit({

@@ -29,7 +29,7 @@ function DRELine({ label, value, bold, negative }: { label: string; value: numbe
 }
 
 export default function DREPage() {
-  const { data, loading } = useApi<DRE>("/api/analytics/dre");
+  const { data, loading, error } = useApi<{ dre: DRE }>("/api/analytics/dre");
 
   if (loading) {
     return <div className="flex h-64 items-center justify-center">
@@ -37,14 +37,20 @@ export default function DREPage() {
     </div>;
   }
 
-  const dre = data ?? {
+  const dre = data?.dre ?? {
     grossRevenue: 0, discounts: 0, netRevenue: 0, cogs: 0,
     grossProfit: 0, expenses: 0, operatingProfit: 0, margin: 0,
   };
 
+  const margin = Number(dre.margin) || 0;
+
   return (
     <div>
       <PageHeader title="DRE Gerencial" description="Demonstração do Resultado do Exercício" />
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -68,8 +74,8 @@ export default function DREPage() {
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-gray-500">Margem Operacional</p>
-            <p className={`mt-2 text-4xl font-bold ${dre.margin >= 0 ? "text-mercatto-700" : "text-red-600"}`}>
-              {dre.margin.toFixed(1)}%
+            <p className={`mt-2 text-4xl font-bold ${margin >= 0 ? "text-mercatto-700" : "text-red-600"}`}>
+              {margin.toFixed(1)}%
             </p>
             <div className="mt-6 space-y-3">
               <div className="rounded-lg bg-green-50 p-3">

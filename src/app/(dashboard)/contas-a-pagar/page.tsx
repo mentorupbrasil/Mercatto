@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { SelectField } from "@/components/ui/select-field";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { useCatalog, toNameOptions } from "@/hooks/use-catalog";
 import { useApi, apiPost, apiPatch } from "@/hooks/use-api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -34,7 +37,14 @@ const statusMap: Record<string, { label: string; variant: "default" | "success" 
 export default function ContasPagarPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const { data: catalog } = useCatalog();
   const { data, loading, refetch } = useApi<{ payables: Payable[] }>("/api/payables");
+
+  const payablesAll = data?.payables ?? [];
+  const payables = payablesAll.filter(
+    (p) => categoryFilter === "all" || p.category === categoryFilter
+  );
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,8 +76,6 @@ export default function ContasPagarPage() {
     }
   }
 
-  const payables = data?.payables ?? [];
-
   return (
     <div>
       <PageHeader
@@ -75,6 +83,20 @@ export default function ContasPagarPage() {
         description="Controle de despesas e vencimentos"
         actions={<Button onClick={() => setModalOpen(true)}><Plus className="h-4 w-4" /> Nova Conta</Button>}
       />
+
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Categoria</p>
+          <FilterChips
+            items={[
+              { id: "all", label: "Todas" },
+              ...(catalog?.expenseCategories.map((c) => ({ id: c.name, label: c.name })) ?? []),
+            ]}
+            activeId={categoryFilter}
+            onChange={setCategoryFilter}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -130,8 +152,13 @@ export default function ContasPagarPage() {
         <form onSubmit={handleCreate} className="space-y-4">
           <Input label="Descrição" name="description" required />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Categoria" name="category" placeholder="Ex: Aluguel" />
-            <Input label="Centro de Custo" name="costCenter" />
+            <SelectField
+              label="Categoria"
+              name="category"
+              options={toNameOptions(catalog?.expenseCategories.map((c) => c.name) ?? [])}
+              placeholder="Selecione a categoria"
+            />
+            <Input label="Centro de Custo" name="costCenter" placeholder="Ex: Operacional" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Valor (R$)" name="amount" type="number" step="0.01" required />

@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/ui/select-field";
+import { useCatalog, toOptions } from "@/hooks/use-catalog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -54,9 +56,11 @@ export default function ComprasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { data, loading, refetch } = useApi<{ purchases: Purchase[] }>("/api/purchases");
-  const { data: predictions } = useApi<Prediction[]>("/api/analytics/predictions");
+  const { data: predictionsData } = useApi<{ predictions: Prediction[] }>("/api/analytics/predictions");
+  const predictions = predictionsData?.predictions ?? [];
   const { data: suppliers } = useApi<{ suppliers: { id: string; name: string }[] }>("/api/suppliers");
   const { data: products } = useApi<{ products: { id: string; name: string }[] }>("/api/products?limit=100");
+  const { data: catalog } = useCatalog();
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -101,7 +105,7 @@ export default function ComprasPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {!predictions || predictions.length === 0 ? (
+          {predictions.length === 0 ? (
             <p className="p-6 text-sm text-gray-500">Sem sugestões no momento.</p>
           ) : (
             <Table>
@@ -183,22 +187,18 @@ export default function ComprasPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova Compra">
         <form onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <label className="mercatto-label">Fornecedor</label>
-            <select name="supplierId" className="mercatto-input" required>
-              {suppliers?.suppliers?.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mercatto-label">Produto</label>
-            <select name="productId" className="mercatto-input" required>
-              {products?.products?.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Fornecedor"
+            name="supplierId"
+            required
+            options={toOptions(catalog?.suppliers ?? suppliers?.suppliers ?? [])}
+          />
+          <SelectField
+            label="Produto"
+            name="productId"
+            required
+            options={toOptions(products?.products ?? [])}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Quantidade" name="quantity" type="number" min="1" required />
             <Input label="Custo Unitário (R$)" name="unitCost" type="number" step="0.01" required />

@@ -13,4 +13,4 @@ export const GET = withAuth(async (req, session) => {
   );
 
   return apiSuccess({ predictions, days, branchId });
-}, "reports.view");
+}, "purchases.view");

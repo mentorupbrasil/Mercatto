@@ -27,6 +27,11 @@ model Organization {
   users        User[]
   categories   Category[]
   brands       Brand[]
+  productModels ProductModel[]
+  colorOptions ColorOption[]
+  sizeOptions  SizeOption[]
+  storageLocations StorageLocation[]
+  expenseCategories ExpenseCategory[]
   products     Product[]
   customers    Customer[]
   suppliers    Supplier[]
@@ -152,6 +157,69 @@ model Brand {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   products     Product[]
+  models       ProductModel[]
+
+  @@unique([organizationId, name])
+}
+
+model ProductModel {
+  id             String   @id @default(cuid())
+  organizationId String
+  brandId        String?
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand        Brand?       @relation(fields: [brandId], references: [id])
+  products     Product[]
+
+  @@unique([organizationId, name])
+}
+
+model ColorOption {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  hexCode        String?
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model SizeOption {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model StorageLocation {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  active         Boolean  @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model ExpenseCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  active         Boolean  @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, name])
 }
@@ -165,6 +233,7 @@ model Product {
   description    String?
   categoryId     String?
   brandId        String?
+  modelId        String?
   supplierId     String?
   unit           ProductUnit @default(UN)
   cost           Decimal  @default(0) @db.Decimal(12, 2)
@@ -184,6 +253,7 @@ model Product {
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     Category?       @relation(fields: [categoryId], references: [id])
   brand        Brand?          @relation(fields: [brandId], references: [id])
+  model        ProductModel?   @relation(fields: [modelId], references: [id])
   supplier     Supplier?       @relation(fields: [supplierId], references: [id])
   variants     ProductVariant[]
   stock        Stock[]

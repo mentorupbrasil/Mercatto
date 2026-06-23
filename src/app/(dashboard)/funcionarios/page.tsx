@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { SelectField } from "@/components/ui/select-field";
+import { useCatalog, toNameOptions } from "@/hooks/use-catalog";
 import { useApi, apiPost } from "@/hooks/use-api";
 import { formatCurrency } from "@/lib/utils";
 
@@ -28,6 +30,7 @@ export default function FuncionariosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { data, loading, refetch } = useApi<{ employees: Employee[] }>("/api/employees");
+  const { data: catalog } = useCatalog();
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -104,7 +107,12 @@ export default function FuncionariosPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Novo Funcionário">
         <form onSubmit={handleCreate} className="space-y-4">
           <Input label="Nome" name="name" required />
-          <Input label="Cargo" name="role" />
+          <SelectField
+            label="Cargo"
+            name="role"
+            options={toNameOptions(catalog?.employeeRoles ?? [])}
+            placeholder="Selecione o cargo"
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Comissão (%)" name="commissionRate" type="number" step="0.1" defaultValue="0" />
             <Input label="Salário (R$)" name="salary" type="number" step="0.01" />
