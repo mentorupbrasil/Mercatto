@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --mercatto-primary: #16a34a;
+    --mercatto-primary-hover: #15803d;
+    --mercatto-primary-light: #f0fdf4;
+    --background: #f9fafb;
+    --foreground: #111827;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --card: #ffffff;
+    --sidebar-width: 16rem;
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    @apply bg-mercatto-100 text-mercatto-900;
+  }
+}
+
+@layer components {
+  .mercatto-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .mercatto-card {
+    @apply rounded-xl border border-gray-200 bg-white shadow-sm;
+  }
+
+  .mercatto-input {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 focus:border-mercatto-500 focus:outline-none focus:ring-2 focus:ring-mercatto-500/20 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500;
+  }
+
+  .mercatto-label {
+    @apply mb-1.5 block text-sm font-medium text-gray-700;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900;
+  }
+
+  .sidebar-link-active {
+    @apply bg-mercatto-50 text-mercatto-700 hover:bg-mercatto-50 hover:text-mercatto-700;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 3px;
+  }
+}

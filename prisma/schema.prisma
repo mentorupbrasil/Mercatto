@@ -1,0 +1,813 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenant ───────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  cnpj      String?
+  phone     String?
+  email     String?
+  logo      String?
+  segment   RetailSegment @default(GENERAL)
+  plan      Plan     @default(STARTER)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches     Branch[]
+  users        User[]
+  categories   Category[]
+  brands       Brand[]
+  products     Product[]
+  customers    Customer[]
+  suppliers    Supplier[]
+  sales        Sale[]
+  purchases    Purchase[]
+  cashRegisters CashRegister[]
+  payables     AccountPayable[]
+  receivables  AccountReceivable[]
+  appointments Appointment[]
+  employees    Employee[]
+  goals        Goal[]
+  auditLogs    AuditLog[]
+  loyaltyPrograms LoyaltyProgram[]
+  stockMovements StockMovement[]
+  purchaseRequests PurchaseRequest[]
+  expenseApprovals ExpenseApproval[]
+}
+
+enum RetailSegment {
+  GENERAL
+  CLOTHING
+  FOOTWEAR
+  STATIONERY
+  AUTO_PARTS
+  CONSTRUCTION
+  CONVENIENCE
+  SUPERMARKET
+  OPTICAL
+  PET_SHOP
+  TECH_REPAIR
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Branch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  phone          String?
+  isMain         Boolean  @default(false)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stock          Stock[]
+  sales          Sale[]
+  cashRegisters  CashRegister[]
+  appointments   Appointment[]
+  stockMovements StockMovement[]
+
+  @@unique([organizationId, code])
+}
+
+// ─── Auth & RBAC ────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  passwordHash   String
+  name           String
+  role           UserRole @default(CASHIER)
+  avatar         String?
+  phone          String?
+  active         Boolean  @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee?
+  auditLogs    AuditLog[]
+  sales        Sale[]       @relation("SaleSeller")
+  cashRegisters CashRegister[] @relation("CashRegisterOperator")
+  appointments Appointment[] @relation("AppointmentUser")
+  expenseApprovals ExpenseApproval[]
+
+  @@unique([organizationId, email])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  CASHIER
+  STOCKIST
+  VIEWER
+}
+
+// ─── Products ─────────────────────────────────────────────────
+
+model Category {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  parentId       String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Category?    @relation("CategoryTree", fields: [parentId], references: [id])
+  children     Category[]   @relation("CategoryTree")
+  products     Product[]
+
+  @@unique([organizationId, name])
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, name])
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  internalCode   String
+  barcode        String?
+  name           String
+  description    String?
+  categoryId     String?
+  brandId        String?
+  supplierId     String?
+  unit           ProductUnit @default(UN)
+  cost           Decimal  @default(0) @db.Decimal(12, 2)
+  price          Decimal  @default(0) @db.Decimal(12, 2)
+  minStock       Int      @default(0)
+  location       String?
+  hasVariants    Boolean  @default(false)
+  trackLot       Boolean  @default(false)
+  trackExpiry    Boolean  @default(false)
+  imageUrl       String?
+  qrCode         String?
+  ncm            String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category?       @relation(fields: [categoryId], references: [id])
+  brand        Brand?          @relation(fields: [brandId], references: [id])
+  supplier     Supplier?       @relation(fields: [supplierId], references: [id])
+  variants     ProductVariant[]
+  stock        Stock[]
+  saleItems    SaleItem[]
+  purchaseItems PurchaseItem[]
+  stockMovements StockMovement[]
+
+  @@unique([organizationId, internalCode])
+  @@index([organizationId, barcode])
+  @@index([organizationId, name])
+}
+
+enum ProductUnit {
+  UN
+  KG
+  G
+  L
+  ML
+  M
+  M2
+  CX
+  PC
+  PAR
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  sku       String
+  color     String?
+  size      String?
+  barcode   String?
+  cost      Decimal @default(0) @db.Decimal(12, 2)
+  price     Decimal @default(0) @db.Decimal(12, 2)
+  active    Boolean @default(true)
+
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stock        Stock[]
+  saleItems    SaleItem[]
+  purchaseItems PurchaseItem[]
+  stockMovements StockMovement[]
+
+  @@unique([productId, sku])
+}
+
+// ─── Stock ──────────────────────────────────────────────────────
+
+model Stock {
+  id        String   @id @default(cuid())
+  branchId  String
+  productId String
+  variantId String?
+  quantity  Int      @default(0)
+  lot       String?
+  expiryDate DateTime?
+  updatedAt DateTime @updatedAt
+
+  branch  Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@unique([branchId, productId, variantId, lot])
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  organizationId String
+  branchId       String
+  productId      String
+  variantId      String?
+  type           StockMovementType
+  quantity       Int
+  previousQty    Int
+  newQty         Int
+  reason         String?
+  referenceType  String?
+  referenceId    String?
+  userId         String?
+  lot            String?
+  createdAt      DateTime          @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch          @relation(fields: [branchId], references: [id])
+  product      Product         @relation(fields: [productId], references: [id])
+  variant      ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([productId])
+}
+
+enum StockMovementType {
+  PURCHASE
+  SALE
+  RETURN
+  ADJUSTMENT
+  INVENTORY
+  TRANSFER_IN
+  TRANSFER_OUT
+  LOSS
+  INTERNAL_USE
+  EXCHANGE
+}
+
+// ─── Suppliers & Purchases ──────────────────────────────────────
+
+model Supplier {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  cnpj           String?
+  email          String?
+  phone          String?
+  whatsapp       String?
+  address        String?
+  city           String?
+  state          String?
+  deliveryDays   Int?
+  paymentTerms   String?
+  notes          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+  purchases    Purchase[]
+  payables     AccountPayable[]
+  purchaseRequests PurchaseRequest[]
+
+  @@index([organizationId, name])
+}
+
+model PurchaseRequest {
+  id             String              @id @default(cuid())
+  organizationId String
+  supplierId     String?
+  status         PurchaseRequestStatus @default(PENDING)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier?    @relation(fields: [supplierId], references: [id])
+  items        PurchaseRequestItem[]
+}
+
+enum PurchaseRequestStatus {
+  PENDING
+  QUOTING
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseRequestItem {
+  id        String @id @default(cuid())
+  requestId String
+  productId String?
+  name      String
+  quantity  Int
+  unitCost  Decimal @default(0) @db.Decimal(12, 2)
+
+  request PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  organizationId String
+  supplierId     String
+  number         String
+  status         PurchaseStatus @default(PENDING)
+  subtotal       Decimal        @default(0) @db.Decimal(12, 2)
+  discount       Decimal        @default(0) @db.Decimal(12, 2)
+  total          Decimal        @default(0) @db.Decimal(12, 2)
+  expectedDate   DateTime?
+  receivedAt     DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier     @relation(fields: [supplierId], references: [id])
+  items        PurchaseItem[]
+
+  @@unique([organizationId, number])
+}
+
+enum PurchaseStatus {
+  PENDING
+  ORDERED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseItem {
+  id         String  @id @default(cuid())
+  purchaseId String
+  productId  String
+  variantId  String?
+  quantity   Int
+  unitCost   Decimal @db.Decimal(12, 2)
+  total      Decimal @db.Decimal(12, 2)
+  received   Int     @default(0)
+
+  purchase Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product         @relation(fields: [productId], references: [id])
+  variant  ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+// ─── Customers & CRM ────────────────────────────────────────────
+
+model Customer {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  cpfCnpj        String?
+  email          String?
+  phone          String?
+  whatsapp       String?
+  birthDate      DateTime?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  notes          String?
+  loyaltyPoints  Int      @default(0)
+  cashbackBalance Decimal @default(0) @db.Decimal(12, 2)
+  totalSpent     Decimal  @default(0) @db.Decimal(12, 2)
+  visitCount     Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sales        Sale[]
+  receivables  AccountReceivable[]
+  appointments Appointment[]
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@index([organizationId, name])
+  @@index([organizationId, cpfCnpj])
+}
+
+// ─── Sales & PDV ────────────────────────────────────────────────
+
+model Sale {
+  id             String     @id @default(cuid())
+  organizationId String
+  branchId       String
+  number         String
+  customerId     String?
+  sellerId       String?
+  cashRegisterId String?
+  status         SaleStatus @default(COMPLETED)
+  subtotal       Decimal    @default(0) @db.Decimal(12, 2)
+  discount       Decimal    @default(0) @db.Decimal(12, 2)
+  total          Decimal    @default(0) @db.Decimal(12, 2)
+  costTotal      Decimal    @default(0) @db.Decimal(12, 2)
+  paymentMethod  PaymentMethod @default(CASH)
+  installments   Int        @default(1)
+  notes          String?
+  nfeKey         String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  seller       User?         @relation("SaleSeller", fields: [sellerId], references: [id])
+  cashRegister CashRegister? @relation(fields: [cashRegisterId], references: [id])
+  items        SaleItem[]
+  payments     SalePayment[]
+  receivables  AccountReceivable[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, createdAt])
+}
+
+enum SaleStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  EXCHANGED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  DEBIT_CARD
+  CREDIT_CARD
+  CONVENIO
+  STORE_CREDIT
+  MIXED
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String
+  variantId String?
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+  total     Decimal @db.Decimal(12, 2)
+  cost      Decimal @default(0) @db.Decimal(12, 2)
+
+  sale    Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model SalePayment {
+  id     String        @id @default(cuid())
+  saleId String
+  method PaymentMethod
+  amount Decimal       @db.Decimal(12, 2)
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+// ─── Cash Register ──────────────────────────────────────────────
+
+model CashRegister {
+  id             String             @id @default(cuid())
+  organizationId String
+  branchId       String
+  operatorId     String
+  status         CashRegisterStatus @default(OPEN)
+  openingAmount  Decimal            @default(0) @db.Decimal(12, 2)
+  closingAmount  Decimal?           @db.Decimal(12, 2)
+  expectedAmount Decimal?           @db.Decimal(12, 2)
+  openedAt       DateTime           @default(now())
+  closedAt       DateTime?
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch         @relation(fields: [branchId], references: [id])
+  operator     User           @relation("CashRegisterOperator", fields: [operatorId], references: [id])
+  movements    CashMovement[]
+  sales        Sale[]
+
+  @@index([organizationId, openedAt])
+}
+
+enum CashRegisterStatus {
+  OPEN
+  CLOSED
+}
+
+model CashMovement {
+  id             String           @id @default(cuid())
+  cashRegisterId String
+  type           CashMovementType
+  amount         Decimal          @db.Decimal(12, 2)
+  method         PaymentMethod?
+  description    String?
+  createdAt      DateTime         @default(now())
+
+  cashRegister CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+}
+
+enum CashMovementType {
+  OPENING
+  SALE
+  WITHDRAWAL
+  SUPPLY
+  CLOSING
+}
+
+// ─── Financial ──────────────────────────────────────────────────
+
+model AccountPayable {
+  id             String        @id @default(cuid())
+  organizationId String
+  supplierId     String?
+  description    String
+  category       String?
+  costCenter     String?
+  amount         Decimal       @db.Decimal(12, 2)
+  dueDate        DateTime
+  paidDate       DateTime?
+  status         PayableStatus @default(OPEN)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier?    @relation(fields: [supplierId], references: [id])
+
+  @@index([organizationId, dueDate])
+  @@index([organizationId, status])
+}
+
+enum PayableStatus {
+  OPEN
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model AccountReceivable {
+  id             String          @id @default(cuid())
+  organizationId String
+  customerId     String?
+  saleId         String?
+  description    String
+  installment    Int             @default(1)
+  totalInstallments Int          @default(1)
+  amount         Decimal         @db.Decimal(12, 2)
+  dueDate        DateTime
+  paidDate       DateTime?
+  paymentMethod  PaymentMethod?
+  status         ReceivableStatus @default(OPEN)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  sale         Sale?        @relation(fields: [saleId], references: [id])
+
+  @@index([organizationId, dueDate])
+  @@index([organizationId, status])
+}
+
+enum ReceivableStatus {
+  OPEN
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model ExpenseApproval {
+  id             String         @id @default(cuid())
+  organizationId String
+  requestedBy    String
+  description    String
+  amount         Decimal        @db.Decimal(12, 2)
+  status         ApprovalStatus @default(PENDING)
+  approvedBy     String?
+  approvedAt     DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requester    User         @relation(fields: [requestedBy], references: [id])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Agenda ─────────────────────────────────────────────────────
+
+model Appointment {
+  id             String            @id @default(cuid())
+  organizationId String
+  branchId       String?
+  customerId     String?
+  userId         String?
+  title          String
+  description    String?
+  type           AppointmentType   @default(GENERAL)
+  startAt        DateTime
+  endAt          DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  reminderSent   Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  user         User?        @relation("AppointmentUser", fields: [userId], references: [id])
+
+  @@index([organizationId, startAt])
+}
+
+enum AppointmentType {
+  GENERAL
+  FITTING
+  VIP
+  EXAM
+  GROOMING
+  DELIVERY
+  REPAIR
+  CONSULTATION
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ─── Employees & Goals ──────────────────────────────────────────
+
+model Employee {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?  @unique
+  name           String
+  role           String?
+  commissionRate Decimal  @default(0) @db.Decimal(5, 2)
+  salary         Decimal? @db.Decimal(12, 2)
+  hireDate       DateTime?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+  commissions  Commission[]
+  goals        Goal[]
+}
+
+model Commission {
+  id         String   @id @default(cuid())
+  employeeId String
+  saleId     String?
+  amount     Decimal  @db.Decimal(12, 2)
+  rate       Decimal  @db.Decimal(5, 2)
+  period     String
+  paid       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id             String   @id @default(cuid())
+  organizationId String
+  employeeId     String?
+  name           String
+  type           GoalType @default(SALES)
+  target         Decimal  @db.Decimal(12, 2)
+  current        Decimal  @default(0) @db.Decimal(12, 2)
+  periodStart    DateTime
+  periodEnd      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation(fields: [employeeId], references: [id])
+}
+
+enum GoalType {
+  SALES
+  REVENUE
+  TICKET
+  ITEMS
+}
+
+// ─── Loyalty ────────────────────────────────────────────────────
+
+model LoyaltyProgram {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  type           LoyaltyType @default(POINTS)
+  pointsPerReal  Decimal  @default(1) @db.Decimal(5, 2)
+  cashbackRate   Decimal  @default(0) @db.Decimal(5, 2)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  coupons      Coupon[]
+}
+
+enum LoyaltyType {
+  POINTS
+  CASHBACK
+  HYBRID
+}
+
+model LoyaltyTransaction {
+  id         String   @id @default(cuid())
+  customerId String
+  type       String
+  points     Int      @default(0)
+  cashback   Decimal  @default(0) @db.Decimal(12, 2)
+  saleId     String?
+  description String?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  programId      String
+  code           String    @unique
+  discountType   String
+  discountValue  Decimal   @db.Decimal(12, 2)
+  minPurchase    Decimal?  @db.Decimal(12, 2)
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  expiresAt      DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+}
+
+// ─── Audit ──────────────────────────────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String
+  entity         String
+  entityId       String?
+  oldValue       String?
+  newValue       String?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([entity, entityId])
+}
